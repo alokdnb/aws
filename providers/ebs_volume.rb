@@ -155,7 +155,7 @@ end
 
 # Retrieves information for a volume
 def volume_by_id(volume_id)
-  ec2.describe_volumes(volume_ids: [volume_id]).volumes[0]
+  ec2.describe_volumes(:filters => { 'volume-id' => volume_id }).first
 end
 
 # Returns the volume that's attached to the instance at the given device or nil if none matches
