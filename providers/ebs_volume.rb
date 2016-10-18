@@ -104,11 +104,11 @@ action :snapshot do
 end
 
 action :prune do
-  vol = determine_volume
+  vol = determine_volume if new_resource.snapshot_filters.empty?
   old_snapshots = []
   Chef::Log.info 'Checking for old snapshots'
-  ec2.describe_snapshots[:snapshots].sort { |a, b| b[:start_time] <=> a[:start_time] }.each do |snapshot|
-    if snapshot[:volume_id] == vol[:volume_id]
+  ec2.describe_snapshots(:filters => new_resource.snapshot_filters).sort { |a,b| b[:aws_started_at] <=> a[:aws_started_at] }.each do |snapshot|
+    if (!new_resource.snapshot_filters.empty?) || (snapshot[:aws_volume_id] == vol[:aws_id])
       Chef::Log.info "Found old snapshot #{snapshot[:volume_id]} (#{snapshot[:volume_id]}) #{snapshot[:start_time]}"
       old_snapshots << snapshot
     end
