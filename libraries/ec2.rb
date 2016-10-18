@@ -37,7 +37,15 @@ module Opscode
       def instance_availability_zone
         node['ec2']['placement_availability_zone']
       end
+      
+      def freeze_fs(mount_point)
+        system("/sbin/fsfreeze -f #{mount_point}")
+      end
 
+      def unfreeze_fs(mount_point)
+        system("/sbin/fsfreeze -u #{mount_point}")
+      end
+            
       def find_snapshot_id(filters={}, find_most_recent = false)
         response = ec2.describe_snapshots(
           filters: [
