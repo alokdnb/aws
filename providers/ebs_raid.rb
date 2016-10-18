@@ -372,6 +372,20 @@ def mount_device(_raid_dev, mount_point, mount_point_owner, mount_point_group, m
       end
 
       Chef::Log.info("Found #{md_device}")
+      
+      md_device_blkid = IO.popen("/sbin/blkid #{md_device}") {|io|
+        io.read.split[1][6..-2]
+      }
+
+      r = Chef::Resource::Mount.new mount_point, run_context
+      r.device_type :uuid
+      r.device md_device_blkid
+      r.fstype filesystem
+      r.options filesystem_options
+      r.dump 0
+      r.pass 0
+      r.run_action :mount
+      r.run_action :enable
 
       # the mountpoint must be determined dynamically, so I can't use the chef mount
       system("mount -t #{filesystem} -o #{filesystem_options} #{md_device} #{mount_point}")
