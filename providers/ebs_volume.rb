@@ -48,6 +48,13 @@ action :create do
                              new_resource.kms_key_id)
         node.set['aws']['ebs_volume'][new_resource.name]['volume_id'] = nvid
         node.save unless Chef::Config[:solo]
+        
+        aws_resource_tag nvid do
+          action :update
+          aws_access_key        new_resource.aws_access_key
+          aws_secret_access_key new_resource.aws_secret_access_key
+          tags "Name" => new_resource.name
+        end
       end
     end
   end

@@ -39,6 +39,21 @@ action :auto_attach do # ~FC017 https://github.com/acrmp/foodcritic/issues/387
                       @new_resource.disk_encrypted,
                       @new_resource.disk_kms_key_id)
 
+    # Set up a Name tag for a volumes of the raid.
+    creds = aws_creds()
+    @new_resource.disk_count.times do |index|
+      aws_resource_tag "tagging disk #{index} of the raid #{@new_resource.name}" do
+        action :update
+        aws_access_key        creds['aws_access_key_id']
+        aws_secret_access_key creds['aws_secret_access_key']
+        tags "Name" => "#{new_resource.name}_#{index}"
+        resource_id lazy {
+          device = node[:aws][:raid][new_resource.mount_point][:device_map].keys.sort[index]
+          vol_id = node[:aws][:raid][new_resource.mount_point][:device_map][device]
+        }
+      end
+    end
+                       
     @new_resource.updated_by_last_action(true)
   end
 end
