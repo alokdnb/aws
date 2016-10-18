@@ -114,7 +114,7 @@ action :prune do
     end
   end
   if old_snapshots.length > new_resource.snapshots_to_keep
-    node_snapshots = node['aws']['ebs_volume'][new_resource.name]['snapshots'] || []
+    node_snapshots = (node['aws']['ebs_volume'][new_resource.name]['snapshots'] || []).dup
     old_snapshots[new_resource.snapshots_to_keep, old_snapshots.length].each do |die|
       converge_by("delete snapshot with id: #{die[:snapshot_id]}") do
         Chef::Log.info "Deleting old snapshot #{die[:snapshot_id]}"
