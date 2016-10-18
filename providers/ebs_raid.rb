@@ -15,7 +15,9 @@ action :auto_attach do # ~FC017 https://github.com/acrmp/foodcritic/issues/387
   if !already_mounted(@new_resource.mount_point) && !locate_and_mount(@new_resource.mount_point, @new_resource.mount_point_owner,
                                                                       @new_resource.mount_point_group, @new_resource.mount_point_mode,
                                                                       @new_resource.filesystem, @new_resource.filesystem_options)
-
+  if !@new_resource.snapshot_filters.empty?
+    @new_resource.snapshots(find_snapshots(@new_resource.snapshot_filters))
+  end
     # If we get here, we couldn't auto attach, nor re-allocate an existing set of disks to ourselves.  Auto create the md devices
 
     # Stopping udev to ensure RAID md device allocates md0 properly
@@ -469,6 +471,15 @@ def create_raid_disks(mount_point, mount_point_owner, mount_point_group, mount_p
       node.set['aws']['raid'][mount_point]['device_map'] = devices
       node.save unless Chef::Config[:solo]
     end
+  end
+end
+
+def find_snapshots(filters)
+  if (r = find_snapshot_id(filters, true))
+    backup_uuid = ec2.describe_snapshots(r).first[:tags]["backup_uuid"]
+    ec2.describe_snapshots(:filters => {"tag:backup_uuid" => backup_uuid}).map{|x| x[:aws_id]}
+  else
+    []
   end
 end
 
