@@ -38,7 +38,7 @@ module Opscode
         node['ec2']['placement_availability_zone']
       end
 
-      def find_snapshot_id(volume_id = '', find_most_recent = false)
+      def find_snapshot_id(filters={}, find_most_recent = false)
         response = ec2.describe_snapshots(
           filters: [
             { name: 'volume-id', values: [volume_id] },
@@ -47,9 +47,9 @@ module Opscode
         )
         snapshots = if find_most_recent
                       # bring the latest snapshot to the front
-                      response.snapshots.sort { |a, b| b[:start_time] <=> a[:start_time] }
+                      response.snapshots(:filters => filters).sort { |a, b| b[:start_time] <=> a[:start_time] }
                     else
-                      response.snapshots.sort { |a, b| a[:start_time] <=> b[:start_time] }
+                      response.snapshots(:filters => filters).sort { |a, b| a[:start_time] <=> b[:start_time] }
                     end
 
         raise 'Cannot find snapshot id!' if snapshots.empty?

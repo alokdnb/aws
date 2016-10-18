@@ -8,10 +8,8 @@ end
 
 action :create do
   raise 'Cannot create a volume with a specific volume_id as AWS chooses volume ids' if new_resource.volume_id
-  if new_resource.snapshot_id =~ /vol/
-    new_resource.snapshot_id(find_snapshot_id(new_resource.snapshot_id, new_resource.most_recent_snapshot))
-  end
 
+  snapshot_id = determine_snapshot_id
   # fetch volume data from node
   nvid = volume_id_in_node_data
   if nvid
@@ -144,6 +142,18 @@ def determine_volume
   vol
 end
 
+def determine_snapshot_id
+  if new_resource.snapshot_id =~ /vol/
+    new_resource.snapshot_filters({ 'volume-id' => new_resource.snapshot_id })
+  end
+
+  if new_resource.snapshot_id.nil? && !new_resource.snapshot_filters.nil?
+    new_resource.snapshot_id(find_snapshot_id(new_resource.snapshot_filters, new_resource.most_recent_snapshot))
+  end
+
+  new_resource.snapshot_id
+end
+
 # Retrieves information for a volume
 def volume_by_id(volume_id)
   ec2.describe_volumes(volume_ids: [volume_id]).volumes[0]
@@ -161,12 +171,9 @@ end
 
 # Returns true if the given volume meets the resource's attributes
 def volume_compatible_with_resource_definition?(volume)
-  if new_resource.snapshot_id =~ /vol/
-    new_resource.snapshot_id(find_snapshot_id(new_resource.snapshot_id, new_resource.most_recent_snapshot))
-  end
-  (new_resource.size.nil? || new_resource.size == volume.size) &&
-    (new_resource.availability_zone.nil? || new_resource.availability_zone == volume.availability_zone) &&
-    (new_resource.snapshot_id.nil? || new_resource.snapshot_id == volume.snapshot_id)
+  determine_snapshot_id
+  (new_resource.size.nil? || new_resource.size == volume[:aws_size]) &&
+  (new_resource.availability_zone.nil? || new_resource.availability_zone == volume[:zone])
 end
 
 # Creates a volume according to specifications and blocks until done (or times out)
