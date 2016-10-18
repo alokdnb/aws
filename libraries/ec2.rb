@@ -53,9 +53,10 @@ module Opscode
                     end
         # No change just comment for tracking. 
         raise 'Cannot find snapshot id!' if snapshots.empty?
-
+        snapshot_id = snapshots.last[:aws_id] unless snapshots.count == 0
+        
         Chef::Log.debug("Snapshot ID is #{snapshots.first[:snapshot_id]}")
-        snapshots.first[:snapshot_id]
+        snapshot_id
       end
 
       # determine the AWS region of the node
