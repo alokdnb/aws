@@ -100,6 +100,15 @@ action :snapshot do
     Chef::Log.info("Created snapshot of #{vol[:volume_id]} as #{snapshot[:volume_id]}")
     node.set['aws']['ebs_volume'][new_resource.name]['snapshots'] = (node['aws']['ebs_volume'][new_resource.name]['snapshots'] || []) + [snapshot[:aws_id]]
     node.save unless Chef::Config[:solo]
+    tags = Hash[new_resource.snapshot_filters.select{|x| x.start_with?("tag:")}.map{|k, v| [k[4..-1], v]}]
+    volume_name = new_resource.name
+    aws_resource_tag "Tagging the latest snapshot of volume #{vol[:aws_id]}" do
+      action :add
+      aws_access_key node['coupa-storage']['aws_access_key']
+      aws_secret_access_key node['coupa-storage']['aws_secret_key']
+      resource_id lazy { node['aws']['ebs_volume'][volume_name]['snapshots'].last }
+      tags tags
+    end
   end
 end
 
@@ -152,7 +161,7 @@ def determine_snapshot_id
     new_resource.snapshot_filters({ 'volume-id' => new_resource.snapshot_id })
   end
 
-  if new_resource.snapshot_id.nil? && !new_resource.snapshot_filters.nil?
+  if new_resource.snapshot_id.nil? && !new_resource.snapshot_filters.empty?
     new_resource.snapshot_id(find_snapshot_id(new_resource.snapshot_filters, new_resource.most_recent_snapshot))
   end
 

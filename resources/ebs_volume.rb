@@ -25,7 +25,7 @@ attribute :aws_role_session_name, kind_of: String
 attribute :region,                kind_of: String
 attribute :size,                  kind_of: Integer
 attribute :snapshot_id,           kind_of: String
-attribute :snapshot_filters,      kind_of: Hash, :default => nil
+attribute :snapshot_filters,      kind_of: Hash, :default => {}
 attribute :most_recent_snapshot,  kind_of: [TrueClass, FalseClass], default: false
 attribute :availability_zone,     kind_of: String
 attribute :device,                kind_of: String

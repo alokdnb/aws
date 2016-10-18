@@ -50,33 +50,24 @@ action :snapshot do
 
   freeze_fs(@new_resource.mount_point)
    begin
-     node[:aws][:raid][@new_resource.mount_point][:device_map].each_key do |device|
+     node[:aws][:raid][@new_resource.mount_point][:device_map].keys.sort.each_with_index do |device, index|
+       tags = @new_resource.snapshot_filters.merge({
+         "tag:device_count" => node[:aws][:raid][@new_resource.mount_point][:device_map].size,
+         "tag:device_number" => index,
+         "tag:backup_uuid" => backup_uuid
+         })
        aws_ebs_volume device do
          action :nothing
          aws_access_key          creds['aws_access_key_id']
          aws_secret_access_key   creds['aws_secret_access_key']
          description description
+         snapshot_filters tags
        end.run_action(:snapshot)  # Make snapshots on compile phase since we freeze fs on compile phase too.
      end
    ensure
      unfreeze_fs(@new_resource.mount_point)
    end
 
-   node[:aws][:raid][@new_resource.mount_point][:device_map].keys.sort.each_with_index do |device, index|
-     tags = Hash[@new_resource.snapshot_filters.select{|x| x.start_with?("tag:")}.map{|k, v| [k[4..-1], v]}].merge({
-      "device_count" => node[:aws][:raid][@new_resource.mount_point][:device_map].size,
-      "device_number" => index,
-      "backup_uuid" => backup_uuid
-      })
-
-    aws_resource_tag "Tag snapshot of #{device}" do
-      action :add
-      resource_id lazy { node['aws']['ebs_volume'][device]['snapshots'].last }
-      aws_access_key          creds['aws_access_key_id']
-      aws_secret_access_key   creds['aws_secret_access_key']
-      tags tags
-    end
-  end
   @new_resource.updated_by_last_action(true)
 end
 
