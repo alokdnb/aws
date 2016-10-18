@@ -335,6 +335,27 @@ def attach_volume(volume_id, instance_id, device, timeout)
   end
 end
 
+if ::File.exists?(device) && IO.popen("/sbin/blkid #{device}"){|x| x.read.match(/TYPE="ext[0-9]"/)}
+    volume_size = (r = ec2.describe_volumes(:filters => {'volume-id' => volume_id}).first)[:aws_size]
+    snapshot_size = (ec2.describe_snapshots(:filters => {'snapshot-id' => r[:snapshot_id]}).first ||{})[:aws_volume_size]
+    if volume_size.nil? || snapshot_size.nil?
+      Chef::Log.error "Cannot determine size of volume or snapshot. #{volume_size}, #{snapshot_size}"
+    elsif volume_size == snapshot_size
+      Chef::Log.info "Resize volume action is not required"
+    else
+      Chef::Log.info "Resize volume is required. Performing..."
+
+      r = IO.popen("/sbin/e2fsck -f -y #{device} 2>&1") {|x| x.read }
+      Chef::Log.error "Fail to perform e2fsck on #{device}.\n#{r}" unless $?.success?
+
+      r = IO.popen("/sbin/resize2fs #{device} 2>&1") {|x| x.read }
+      Chef::Log.error "Could not resize #{device}.\n#{r}" unless $?.success?
+    end
+  elsif !::File.exists?(device)
+    Chef::Log.error "Expected to see #{device} to perform resizing."
+  end
+end
+
 # Detaches the volume and blocks until done (or times out)
 def detach_volume(volume_id, timeout)
   vol = volume_by_id(volume_id)
