@@ -1,4 +1,4 @@
-actions :auto_attach, :snapshot
+actions :auto_attach, :snapshot, :prune
 default_action :auto_attach
 
 state_attrs :aws_access_key,
@@ -37,5 +37,6 @@ attribute :snapshot_filters,      :kind_of => Hash, :default => {}
 attribute :disk_type,             kind_of: String, default: 'standard'
 attribute :disk_piops,            kind_of: Integer, default: 0
 attribute :existing_raid,         kind_of: [TrueClass, FalseClass]
+attribute :snapshots_to_keep,     kind_of: Integer, :default: 2
 attribute :disk_encrypted,        kind_of: [TrueClass, FalseClass], default: false
 attribute :disk_kms_key_id,       kind_of: String

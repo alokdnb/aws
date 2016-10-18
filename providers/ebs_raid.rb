@@ -156,6 +156,30 @@ def already_mounted(mount_point)
   true
 end
 
+action :prune do
+  if !@new_resource.snapshot_filters.empty?
+    snapshots_to_keep = @new_resource.snapshots_to_keep
+    snapshot_filters = @new_resource.snapshot_filters
+
+    if (snap_id = find_snapshot_id(@new_resource.snapshot_filters, true))
+      ec2.describe_snapshots(snap_id).first[:tags]["device_count"].to_i.times do |index|
+
+        aws_ebs_volume node[:aws][:raid][@new_resource.mount_point][:device_map].keys.sort[index] do
+          snapshots_to_keep snapshots_to_keep
+          snapshot_filters snapshot_filters.merge({"tag:device_number" => index.to_s})
+          action :prune
+        end
+      end
+
+      @new_resource.updated_by_last_action(true)
+    else
+      Chef::Log.info "No snapshots were found by filter #{@new_resource.snapshot_filters}"
+    end
+  else
+    Chef::Log.info "aws_ebs_raid :prune. snapshot_filters must be set to perform this action."
+  end
+end
+
 private
 
 # execute udevadm commands
