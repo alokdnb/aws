@@ -51,7 +51,7 @@ module Opscode
         ::File.open("/proc/mounts").lines.select{|x| x.start_with?(device + " ")}.map{|x| x.split[1]}.first
       end      
             
-      def find_snapshot_id(filters={}, find_most_recent = false)
+      def find_snapshot_id(filters={}, find_most_recent=false, options = {})
         response = ec2.describe_snapshots(
           filters: [
             { name: 'volume-id', values: [volume_id] },
@@ -64,6 +64,18 @@ module Opscode
                     else
                       response.snapshots(:filters => filters).sort { |a, b| a[:start_time] <=> b[:start_time] }
                     end
+        
+                    if options.has_key?(:timestamp) && options[:timestamp].kind_of?(Integer) && options[:timestamp] > 0
+                      require 'date'
+                      dd = DateTime.strptime(options[:timestamp].to_s, "%s")
+                      Chef::Log.debug "[find_snapshot_id] select snapshots that were done before #{dd.to_s}"
+                      snapshots.select!{ |x|
+                        r = DateTime.strptime(x[:aws_started_at], "%FT%T.000Z") < dd
+                        Chef::Log.debug "#{x[:aws_id]} -- #{x[:aws_started_at]} -- #{r}"
+                        r
+                      }
+                    end
+
         # No change just comment for tracking. 
         raise 'Cannot find snapshot id!' if snapshots.empty?
         snapshot_id = snapshots.last[:aws_id] unless snapshots.count == 0

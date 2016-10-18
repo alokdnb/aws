@@ -512,7 +512,7 @@ def create_raid_disks(mount_point, mount_point_owner, mount_point_group, mount_p
 end
 
 def find_snapshots(filters)
-  if (r = find_snapshot_id(filters, true))
+  if (r = find_snapshot_id(filters, true, :timestamp => new_resource.snapshot_timestamp))
     backup_uuid = ec2.describe_snapshots(r).first[:tags]["backup_uuid"]
     ec2.describe_snapshots(:filters => {"tag:backup_uuid" => backup_uuid}).map{|x| x[:aws_id]}
   else

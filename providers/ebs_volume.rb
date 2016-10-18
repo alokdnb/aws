@@ -225,8 +225,7 @@ def determine_snapshot_id
   end
 
   if new_resource.snapshot_id.nil? && !new_resource.snapshot_filters.empty?
-    new_resource.snapshot_id(find_snapshot_id(new_resource.snapshot_filters, new_resource.most_recent_snapshot))
-  end
+    new_resource.snapshot_id(find_snapshot_id(new_resource.snapshot_filters, new_resource.most_recent_snapshot, :timestamp => new_resource.snapshot_timestamp))  end
 
   new_resource.snapshot_id
 end
