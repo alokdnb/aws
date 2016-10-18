@@ -51,7 +51,7 @@ module Opscode
                     else
                       response.snapshots(:filters => filters).sort { |a, b| a[:start_time] <=> b[:start_time] }
                     end
-
+        # No change just comment for tracking. 
         raise 'Cannot find snapshot id!' if snapshots.empty?
 
         Chef::Log.debug("Snapshot ID is #{snapshots.first[:snapshot_id]}")
