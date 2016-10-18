@@ -41,6 +41,37 @@ action :auto_attach do # ~FC017 https://github.com/acrmp/foodcritic/issues/387
   end
 end
 
+action :snapshot do
+  creds = aws_creds() # cannot be invoked inside the block
+  backup_uuid = instance_id + "-" + Time.now.to_i.to_s
+  description = "Snapshot for #{@new_resource.name}"
+
+  node[:aws][:raid][@new_resource.mount_point][:device_map].each_pair do |device, volume_id|
+    tags = Hash[@new_resource.snapshot_filters.select{|x| x.start_with?("tag:")}.map{|k, v| [k[4..-1], v]}].merge({
+      "device_count" => node[:aws][:raid][@new_resource.mount_point][:device_map].size,
+      "device_number" => node[:aws][:raid][@new_resource.mount_point][:device_map].keys.sort.index(device),
+      "backup_uuid" => backup_uuid
+      })
+
+    aws_ebs_volume device do
+      action :snapshot
+      aws_access_key          creds['aws_access_key_id']
+      aws_secret_access_key   creds['aws_secret_access_key']
+      description description
+    end
+
+    aws_resource_tag "Tag snapshot for #{volume_id}" do
+      action :add
+      resource_id lazy { node['aws']['ebs_volume'][device]['snapshots'].last }
+      aws_access_key          creds['aws_access_key_id']
+      aws_secret_access_key   creds['aws_secret_access_key']
+      tags tags
+    end
+  end
+  @new_resource.updated_by_last_action(true)
+end
+
+
 private
 
 # AWS's volume attachment interface assumes that we're using

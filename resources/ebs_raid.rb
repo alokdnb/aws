@@ -1,4 +1,4 @@
-actions :auto_attach
+actions :auto_attach, :snapshot
 default_action :auto_attach
 
 state_attrs :aws_access_key,
@@ -33,6 +33,7 @@ attribute :level,                 default: 10
 attribute :filesystem,            default: 'ext4'
 attribute :filesystem_options,    default: 'rw,noatime,nobootwait'
 attribute :snapshots,             default: []
+attribute :snapshot_filters,      :kind_of => Hash, :default => {}
 attribute :disk_type,             kind_of: String, default: 'standard'
 attribute :disk_piops,            kind_of: Integer, default: 0
 attribute :existing_raid,         kind_of: [TrueClass, FalseClass]
