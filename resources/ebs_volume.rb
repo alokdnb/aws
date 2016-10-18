@@ -33,6 +33,11 @@ attribute :volume_id,             kind_of: String
 attribute :description,           kind_of: String
 attribute :timeout,               default: 3 * 60 # 3 mins, nil or 0 for no timeout
 attribute :snapshots_to_keep,     default: 2
+attribute :snapshots_keep_hourlies,   :kind_of => Integer, :default => 24
+attribute :snapshots_keep_dailies,    :kind_of => Integer, :default => 14
+attribute :snapshots_keep_weeklies,   :kind_of => Integer, :default => 6
+attribute :snapshots_keep_monthlies,  :kind_of => Integer, :default => 12
+attribute :snapshots_keep_yearlies,   :kind_of => Integer, :default => 2
 attribute :volume_type,           kind_of: String, default: 'standard'
 attribute :piops,                 kind_of: Integer, default: 0
 attribute :encrypted,             kind_of: [TrueClass, FalseClass], default: false

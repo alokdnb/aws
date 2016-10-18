@@ -126,8 +126,11 @@ action :snapshot do
 end
 
 action :prune do
+  require 'date'
   vol = determine_volume if new_resource.snapshot_filters.empty?
   old_snapshots = []
+  snapshots_to_keep = Array.new
+  datetime_now = DateTime.now - DateTime.now.offset
   Chef::Log.info 'Checking for old snapshots'
   ec2.describe_snapshots(:filters => new_resource.snapshot_filters).sort { |a,b| b[:aws_started_at] <=> a[:aws_started_at] }.each do |snapshot|
     if (!new_resource.snapshot_filters.empty?) || (snapshot[:aws_volume_id] == vol[:aws_id])
@@ -135,18 +138,58 @@ action :prune do
       old_snapshots << snapshot
     end
   end
-  if old_snapshots.length > new_resource.snapshots_to_keep
-    node_snapshots = (node['aws']['ebs_volume'][new_resource.name]['snapshots'] || []).dup
-    old_snapshots[new_resource.snapshots_to_keep, old_snapshots.length].each do |die|
-      converge_by("delete snapshot with id: #{die[:snapshot_id]}") do
-        Chef::Log.info "Deleting old snapshot #{die[:snapshot_id]}"
-        ec2.delete_snapshot(snapshot_id: die[:snapshot_id])
-        node_snapshots.delete(die[:aws_id])
-      end
-    end
-    node.set['aws']['ebs_volume'][new_resource.name]['snapshots'] = node_snapshots
-    node.save unless Chef::Config[:solo]
+  (1..new_resource.snapshots_keep_yearlies).each do |y|
+    dd = datetime_now.prev_year(y)
+    snapshots_to_keep << old_snapshots.select {|x|
+      DateTime.strptime(x[:aws_started_at], "%FT%T.000Z").year == dd.year
+    }.first
   end
+
+  (1..new_resource.snapshots_keep_monthlies).each do |m|
+    dd = datetime_now.prev_month(m)
+    snapshots_to_keep << old_snapshots.select {|x|
+      sd = DateTime.strptime(x[:aws_started_at], "%FT%T.000Z")
+      sd.month == dd.month && sd.year == dd.year
+    }.first
+  end
+
+  (1..new_resource.snapshots_keep_weeklies).each do |w|
+    dd = datetime_now.prev_day(w*7)
+    snapshots_to_keep << old_snapshots.select {|x|
+      sd = DateTime.strptime(x[:aws_started_at], "%FT%T.000Z")
+      sd.year == dd.year && sd.cweek == dd.cweek
+    }.first
+  end
+
+  (1..new_resource.snapshots_keep_dailies).each do |d|
+    dd = datetime_now.prev_day(d)
+    snapshots_to_keep << old_snapshots.select {|x|
+      sd = DateTime.strptime(x[:aws_started_at], "%FT%T.000Z")
+      sd.year == dd.year && sd.month == dd.month && sd.day == dd.day
+    }.first
+  end
+
+  (0..new_resource.snapshots_keep_hourlies).each do |h|
+    dd = datetime_now - Rational(h, 24)
+    snapshots_to_keep << old_snapshots.select {|x|
+      sd = DateTime.strptime(x[:aws_started_at], "%FT%T.000Z")
+      sd.year == dd.year && sd.month == dd.month && sd.day == dd.day && sd.hour == dd.hour
+    }.first
+  end
+
+  node_snapshots = (node['aws']['ebs_volume'][new_resource.name]['snapshots'] || []).dup
+  snapshots_to_keep = snapshots_to_keep.compact.sort{|a,b| b[:aws_started_at] <=> a[:aws_started_at]}.uniq.slice(0, new_resource.snapshots_to_keep)
+  (old_snapshots - snapshots_to_keep).each do |die|
+    converge_by("delete snapshot with id: #{die[:aws_id]}") do
+      Chef::Log.info "Deleting old snapshot #{die[:aws_id]}"
+      ec2.delete_snapshot(die[:aws_id])
+      node_snapshots.delete(die[:aws_id])
+    end
+  end
+  node.set['aws']['ebs_volume'][new_resource.name]['snapshots'] = node_snapshots
+  node.save unless Chef::Config[:solo]
+  
+  new_resource.updated_by_last_action(true)
 end
 
 private
