@@ -45,6 +45,11 @@ module Opscode
       def unfreeze_fs(mount_point)
         system("/sbin/fsfreeze -u #{mount_point}")
       end
+      
+      # Returns nil or mount point of device
+      def discover_mount_point(device)
+        ::File.open("/proc/mounts").lines.select{|x| x.start_with?(device + " ")}.map{|x| x.split[1]}.first
+      end      
             
       def find_snapshot_id(filters={}, find_most_recent = false)
         response = ec2.describe_snapshots(

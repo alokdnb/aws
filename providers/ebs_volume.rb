@@ -95,11 +95,23 @@ end
 
 action :snapshot do
   vol = determine_volume
-  converge_by("would create a snapshot for volume: #{vol[:volume_id]}") do
-    snapshot = ec2.create_snapshot(volume_id: vol[:volume_id], description: new_resource.description)
-    Chef::Log.info("Created snapshot of #{vol[:volume_id]} as #{snapshot[:volume_id]}")
+  converge_by("would create a snapshot for volume: #{vol[:aws_id]}") do
+    begin
+      if (mount_point = discover_mount_point(vol[:aws_device]))
+        Chef::Log.info "[aws_ebs_volume.snapshot] Freeze #{mount_point}"
+        freeze_fs(mount_point)
+      end
+      snapshot = ec2.create_snapshot(vol[:aws_id],new_resource.description)
+    ensure
+      if mount_point
+        Chef::Log.info "[aws_ebs_volume.snapshot] Unfreeze #{mount_point}"
+        unfreeze_fs(mount_point)
+      end
+    end
+    Chef::Log.info("Created snapshot of #{vol[:aws_id]} as #{snapshot[:aws_id]}")
     node.set['aws']['ebs_volume'][new_resource.name]['snapshots'] = (node['aws']['ebs_volume'][new_resource.name]['snapshots'] || []) + [snapshot[:aws_id]]
     node.save unless Chef::Config[:solo]
+
     tags = Hash[new_resource.snapshot_filters.select{|x| x.start_with?("tag:")}.map{|k, v| [k[4..-1], v]}]
     volume_name = new_resource.name
     aws_resource_tag "Tagging the latest snapshot of volume #{vol[:aws_id]}" do
@@ -109,6 +121,7 @@ action :snapshot do
       resource_id lazy { node['aws']['ebs_volume'][volume_name]['snapshots'].last }
       tags tags
     end
+
   end
 end
 
