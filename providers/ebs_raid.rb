@@ -88,18 +88,31 @@ end
 
 
 private
+def device_exists?(device)
+  ::Dir.glob(device).size > 0
+end
 
 # AWS's volume attachment interface assumes that we're using
 # sdX style device names.  The ones we actually get will be xvdX
 def find_free_volume_device_prefix
   # Specific to ubuntu 11./12.
-  vol_dev = 'sdh'
+  vol_dev = begin
+    root_dev = ::File.open("/proc/mounts").readlines.select do |x|
+      x.match("^/dev/.* / .*")
+    end.first.match("^/dev/(.*?) ")[1]
+    
+    Chef::Log.info("Detected root device: #{root_dev}")
+    root_dev.start_with?("s") ? "sdh" : "xvdh"
+  rescue Exception => e
+    Chef::Log.info("Cannot determine root device. #{e.inspect}")
+    "sdh"
+  end
 
   begin
     vol_dev = vol_dev.next
-    base_device = "/dev/#{vol_dev}1"
+    base_device = "/dev/#{vol_dev}*"
     Chef::Log.info("dev pre trim #{base_device}")
-  end while ::File.exist?(base_device)
+  end while device_exists?(base_device)
 
   vol_dev
 end
@@ -409,11 +422,9 @@ def create_raid_disks(mount_point, mount_point_owner, mount_point_group, mount_p
 
   # For each volume add information to the mount metadata
   (1..num_disks).each do |i|
-    disk_dev_path = "#{disk_dev}#{i}"
 
     Chef::Log.info "Snapshot array is #{snapshots[i - 1]}"
-    creds = aws_creds # cannot be invoked inside the block
-    aws_ebs_volume disk_dev_path do
+    aws_ebs_volume disk_dev_path.dup do
       aws_access_key creds['aws_access_key_id']
       aws_secret_access_key creds['aws_secret_access_key']
       aws_session_token creds['aws_session_token']
@@ -421,7 +432,6 @@ def create_raid_disks(mount_point, mount_point_owner, mount_point_group, mount_p
       volume_type disk_type
       piops disk_piops
       device "/dev/#{disk_dev_path}"
-      name disk_dev_path
       action [:create, :attach]
       snapshot_id creating_from_snapshot ? snapshots[i - 1] : nil
       provider 'aws_ebs_volume'
@@ -435,6 +445,11 @@ def create_raid_disks(mount_point, mount_point_owner, mount_point_group, mount_p
     end
 
     Chef::Log.info("attach dev: #{disk_dev_path}")
+    
+    begin
+      disk_dev_path.next!
+    end while device_exists?("/dev/#{disk_dev_path}")
+    
   end
 
   ruby_block "sleeping_#{new_resource.name}" do
