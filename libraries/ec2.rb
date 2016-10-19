@@ -83,6 +83,38 @@ module Opscode
         Chef::Log.debug("Snapshot ID is #{snapshots.first[:snapshot_id]}")
         snapshot_id
       end
+  
+      def sizefs(device)
+           block_size, block_count = IO.popen("/sbin/tune2fs -l #{device}") {|x|
+             r = x.read
+             [r.match(/Block size:[ ]+([0-9]+)/)[1].to_i, r.match(/Block count:[ ]+([0-9]+)/)[1].to_i]
+           }
+           block_count * block_size
+      end
+
+      def device_capability(device)
+        IO.popen("/sbin/fdisk -l #{device}") {|x|
+          x.read.match(/Disk #{device}:.*, ([0-9]+) bytes/)[1].to_i
+        }
+      end
+
+      def resize2fs(device)
+        if device_capability(device) == (cs = sizefs(device))
+          Chef::Log.info "Resize FS action is not needed. We have #{cs} bytes"
+        return
+        end
+
+        ["/sbin/e2fsck -f -y #{device} 2>&1", "/sbin/resize2fs #{device} 2>&1"].each {|cmd|
+          r = IO.popen(cmd) {|x| x.read }
+          unless $?.success?
+            Chef::Log.error "Fail to perform #{cmd}.\n#{r}"
+            break
+          end
+      }
+
+           Chef::Log.info "#{device} has been resized from #{cs} to #{sizefs(device)} bytes."
+         end
+
 
       # determine the AWS region of the node
       # Priority: resource property, user set node attribute -> ohai data -> us-east-1

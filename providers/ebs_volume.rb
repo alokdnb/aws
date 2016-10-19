@@ -344,12 +344,7 @@ if ::File.exists?(device) && IO.popen("/sbin/blkid #{device}"){|x| x.read.match(
       Chef::Log.info "Resize volume action is not required"
     else
       Chef::Log.info "Resize volume is required. Performing..."
-
-      r = IO.popen("/sbin/e2fsck -f -y #{device} 2>&1") {|x| x.read }
-      Chef::Log.error "Fail to perform e2fsck on #{device}.\n#{r}" unless $?.success?
-
-      r = IO.popen("/sbin/resize2fs #{device} 2>&1") {|x| x.read }
-      Chef::Log.error "Could not resize #{device}.\n#{r}" unless $?.success?
+      resize2fs(device)
     end
   elsif !::File.exists?(device)
     Chef::Log.error "Expected to see #{device} to perform resizing."

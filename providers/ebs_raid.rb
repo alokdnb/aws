@@ -341,7 +341,7 @@ def assemble_raid(raid_dev, devices_string)
   # within the superblock metadata, causing the md_device number to be randomly
   # chosen if restore is happening on a different host
   execute 're-attaching raid device' do
-    command "mdadm -A --uuid=`mdadm -E --scan|awk '{print $4}'|sed 's/UUID=//g'` #{raid_dev} #{devices_string}"
+    command "mdadm -A --uuid=`mdadm -E --scan|awk '{print $4}'|sed 's/UUID=//g'` #{raid_dev} #{devices_string} --update=devicesize"
     # mdadm may return 2 but still return a clean raid device.
     returns [0, 2]
   end
@@ -372,6 +372,10 @@ def mount_device(_raid_dev, mount_point, mount_point_owner, mount_point_group, m
       end
 
       Chef::Log.info("Found #{md_device}")
+      
+      Chef::Log.info "Checking actual size of FS on #{md_device}..."
+      resize2fs(md_device)
+      Chef::Log.info "Done."
       
       md_device_blkid = IO.popen("/sbin/blkid #{md_device}") {|io|
         io.read.split[1][6..-2]
