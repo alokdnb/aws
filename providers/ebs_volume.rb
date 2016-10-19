@@ -120,6 +120,7 @@ action :snapshot do
     node.save unless Chef::Config[:solo]
 
     tags = Hash[new_resource.snapshot_filters.select{|x| x.start_with?("tag:")}.map{|k, v| [k[4..-1], v]}]
+    tags.merge!('timestamp' => Time.now.to_i.to_s)
     volume_name = new_resource.name
     aws_resource_tag "Tagging the latest snapshot of volume #{vol[:aws_id]}" do
       action :add

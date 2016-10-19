@@ -66,12 +66,10 @@ module Opscode
                     end
         
                     if options.has_key?(:timestamp) && options[:timestamp].kind_of?(Integer) && options[:timestamp] > 0
-                      require 'date'
-                      dd = DateTime.strptime(options[:timestamp].to_s, "%s")
-                      Chef::Log.debug "[find_snapshot_id] select snapshots that were done before #{dd.to_s}"
                       snapshots.select!{ |x|
-                        r = DateTime.strptime(x[:aws_started_at], "%FT%T.000Z") < dd
-                        Chef::Log.debug "#{x[:aws_id]} -- #{x[:aws_started_at]} -- #{r}"
+                        Chef::Log.debug "Tags: #{x[:aws_id]} -> #{x[:tags]}"
+                        r = x[:tags]['timestamp'].to_i == options[:timestamp]
+                        Chef::Log.debug "#{x[:aws_id]} -- #{x[:tags]['timestamp'] || 'nil'} -- #{r}"
                         r
                       }
                     end
